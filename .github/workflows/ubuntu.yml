@@ -1,0 +1,82 @@
+# Ubuntu 22.04 workflow
+
+name: Ubuntu (no Nix)
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ubuntu:${{ matrix.release }}
+    runs-on: ubuntu-latest
+    container: ubuntu:${{ matrix.release }}
+    strategy:
+      # Report every release rather than cancelling siblings on the first
+      # failure - knowing it breaks on exactly one of them is the useful signal.
+      fail-fast: false
+      matrix:
+        release:
+          - "22.04"   # LTS, supported to 2027. Oldest CMake we support (3.22).
+          - "24.04"   # LTS, current default.
+          - "25.04"   # Forward-looking; catches upcoming GStreamer changes.
+
+    steps:
+      - name: Install dependencies
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            pkg-config \
+            git \
+            ca-certificates \
+            libgstreamer1.0-dev \
+            libgstreamer-plugins-base1.0-dev \
+            gstreamer1.0-plugins-base \
+            gstreamer1.0-plugins-good
+
+      - uses: actions/checkout@v4
+
+      - name: Record what this image actually provides
+        run: |
+          . /etc/os-release && echo "distro    $PRETTY_NAME"
+          echo "cmake     $(cmake --version | head -n1)"
+          echo "gcc       $(gcc --version | head -n1)"
+          echo "gstreamer $(pkg-config --modversion gstreamer-1.0)"
+
+      # Fails loudly and early if the distro CMake is older than the project
+      # floor, rather than emitting a confusing error from inside CMakeLists.
+      - name: Assert distro CMake meets the project floor
+        run: |
+          have=$(cmake --version | head -n1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+          need=3.22
+          if [ "$(printf '%s\n%s' "$need" "$have" | sort -V | head -1)" != "$need" ]; then
+            echo "::error::stock cmake $have is below the project floor $need"
+            exit 1
+          fi
+          echo "stock cmake $have satisfies floor $need"
+
+      - name: Configure
+        run: cmake --preset dev
+
+      - name: Build
+        run: cmake --build --preset dev --parallel
+
+      # videotestsrc -> videoconvert -> fakesink: no display, no camera, no GPU.
+      - name: Smoke test
+        env:
+          GST_DEBUG: "1"
+        run: ./build/dev/rtip-hello
+
+      # The editor integration is part of the deliverable, so check that CMake
+      # really did publish the compilation database on a stock toolchain too.
+      - name: Check compile_commands.json was published
+        run: |
+          test -e compile_commands.json || { echo "::error::symlink missing"; exit 1; }
+          echo "compile_commands.json -> $(readlink -f compile_commands.json)"

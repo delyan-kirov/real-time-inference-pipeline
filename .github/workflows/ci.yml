@@ -1,0 +1,70 @@
+# Build the project and run the smoke test.
+
+name: CI (Nix)
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# A new push to the same branch makes the previous run irrelevant.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  nix:
+    name: nix / ${{ matrix.preset }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # asan is in the default matrix deliberately: the task is judged on not
+        # leaking under sustained load, so a leak should break the build.
+        preset: [dev, release, asan]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Cache the Nix store
+        uses: actions/cache@v4
+        with:
+          path: /nix/store
+          key: nix-${{ runner.os }}-${{ hashFiles('flake.lock') }}
+          restore-keys: nix-${{ runner.os }}-
+
+      # Catches a malformed flake with a clear error before the build does.
+      - name: Check flake
+        run: nix flake check --all-systems
+
+      - name: Record exact dependency versions
+        run: |
+          nix develop --command bash -c '
+            echo "gstreamer $(pkg-config --modversion gstreamer-1.0)"
+            cmake --version | head -n1
+            make --version | head -n1
+            c++ --version | head -n1
+          '
+
+      - name: Configure
+        run: nix develop --command cmake --preset ${{ matrix.preset }}
+
+      - name: Build
+        run: nix develop --command cmake --build --preset ${{ matrix.preset }} --parallel
+
+      - name: Smoke test
+        # LeakSanitizer is only meaningful on the asan build; setting the option
+        # unconditionally is harmless and keeps this a single step.
+        env:
+          ASAN_OPTIONS: detect_leaks=1
+          # The pipeline is videotestsrc -> fakesink, so it needs no display and
+          # no camera. Raise this to 3 when a failure needs diagnosing.
+          GST_DEBUG: "1"
+        run: nix develop --command ./build/${{ matrix.preset }}/rtip-hello
+

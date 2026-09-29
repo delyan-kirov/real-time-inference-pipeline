@@ -1,0 +1,20 @@
+# CMake
+build/
+compile_commands.json
+CMakeUserPresets.json
+
+# Nix
+result
+result-*
+.direnv/
+
+# GStreamer plugin registry cache (see flake.nix shellHook)
+.cache/
+
+# Editor
+.vscode/settings.local.json
+*.swp
+
+# Models are large binaries; fetched by tools/fetch_models.sh instead.
+models/*
+!models/.gitkeep

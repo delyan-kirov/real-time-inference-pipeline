@@ -1,0 +1,39 @@
+{
+  // --- CMake ----------------------------------------------------------------
+  // The CMake Tools extension reads CMakePresets.json directly, so there is no
+  // duplicated build configuration in here. Status bar at the bottom lets you
+  // switch preset, build (F7) and run.
+  "cmake.useCMakePresets": "always",
+  "cmake.configureOnOpen": true,
+
+  // --- IntelliSense ---------------------------------------------------------
+  // clangd, not the Microsoft C/C++ engine. Under Nix the system headers live in
+  // /nix/store paths that cpptools guesses badly; clangd just reads the exact
+  // flags out of compile_commands.json and is always right.
+  "C_Cpp.intelliSenseEngine": "disabled",
+  // No --compile-commands-dir: CMakeLists.txt symlinks compile_commands.json
+  // to the source root, which clangd finds by itself. That keeps this working
+  // whichever preset you configured, and for reviewers using their own build
+  // directory instead of our presets.
+  "clangd.arguments": [
+    "--background-index",
+    "--clang-tidy",
+    "--header-insertion=never",
+    "--completion-style=detailed"
+  ],
+
+  // --- Formatting -----------------------------------------------------------
+  "editor.formatOnSave": true,
+  "[cpp]": { "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd" },
+  "[c]": { "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd" },
+
+  "files.associations": { "*.hpp": "cpp", "*.h": "cpp" },
+  "files.exclude": {
+    "**/build": true,
+    "**/.cache": true,
+    "**/.direnv": true
+  },
+  "nixEnvSelector.nixFile": "${workspaceFolder}/flake.nix",
+  "nixEnvSelector.useFlakes": true,
+  "nixEnvSelector.flakeShell": "default"
+}

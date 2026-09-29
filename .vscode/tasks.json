@@ -1,0 +1,37 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      // Default build (Ctrl+Shift+B). Assumes the dev-shell environment is
+      // present - either because VS Code was started from `nix develop`, or
+      // because the direnv extension injected it.
+      "label": "build: dev",
+      "type": "shell",
+      "command": "cmake --build --preset dev",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      // Fallback that brings its own environment. Slower to start, but works
+      // even when VS Code was launched from a plain desktop session.
+      "label": "build: dev (via nix develop)",
+      "type": "shell",
+      "command": "nix develop --command cmake --build --preset dev",
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "configure: dev",
+      "type": "shell",
+      "command": "cmake --preset dev",
+      "problemMatcher": []
+    },
+    {
+      "label": "run: rtip-hello",
+      "type": "shell",
+      "command": "${workspaceFolder}/build/dev/rtip-hello",
+      "dependsOn": "build: dev",
+      "problemMatcher": []
+    }
+  ]
+}

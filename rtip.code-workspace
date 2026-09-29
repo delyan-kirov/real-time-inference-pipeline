@@ -1,0 +1,13 @@
+{
+  "folders": [{ "path": "." }],
+  "settings": {},
+  "extensions": {
+    "recommendations": [
+      "ms-vscode.cmake-tools",
+      "llvm-vs-code-extensions.vscode-clangd",
+      "ms-vscode.cpptools",
+      "mkhl.direnv",
+      "jnoortheen.nix-ide"
+    ]
+  }
+}
