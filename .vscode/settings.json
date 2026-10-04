@@ -6,6 +6,27 @@
   "cmake.useCMakePresets": "always",
   "cmake.configureOnOpen": true,
 
+  // Applies to the status-bar Run (Shift+F5) and Debug buttons, for whichever
+  // target is selected. Arguments deliberately are NOT set here: cmake.debugConfig
+  // is global across targets, so args meant for `rfd` would also be handed to
+  // `rfd-smoke`. Per-target arguments live in launch.json instead.
+  "cmake.debugConfig": {
+    "cwd": "${workspaceFolder}",
+    "environment": [
+      // Only gst-inspect/gst-launch need this - `rfd` registers rfdface
+      // in-process - but it is set so plugin loading can be debugged too.
+      { "name": "GST_PLUGIN_PATH", "value": "${workspaceFolder}/build/dev/source" },
+      // 2 is quiet. Raise to 4 for element lifecycle, or use rfdface:6 to see
+      // one line per frame from our own element.
+      { "name": "GST_DEBUG", "value": "2" },
+      { "name": "ASAN_OPTIONS", "value": "detect_leaks=1" }
+    ],
+    "MIMode": "gdb",
+    "setupCommands": [
+      { "description": "Pretty-print STL containers", "text": "-enable-pretty-printing", "ignoreFailures": true }
+    ]
+  },
+
   // --- IntelliSense ---------------------------------------------------------
   // clangd, not the Microsoft C/C++ engine. Under Nix the system headers live in
   // /nix/store paths that cpptools guesses badly; clangd just reads the exact

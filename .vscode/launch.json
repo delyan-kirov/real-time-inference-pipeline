@@ -1,11 +1,104 @@
 {
+  // Per-target debug configurations, for the binaries that take arguments.
+  //
+  // For a target that needs no arguments, the CMake Tools status bar is easier:
+  // pick the launch target there and press the Run or Debug button. That path
+  // uses "cmake.debugConfig" from settings.json for its environment. The last
+  // configuration here bridges the two - it debugs whatever target the status bar
+  // has selected.
+  //
+  // Several of these use a preLaunchTask from tasks.json to build and to enrol
+  // the gallery first, so F5 works from a clean tree.
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug rtip-hello",
+      // The main event: stream a clip at source rate, recognising faces.
+      // preLaunchTask enrols the gallery first, which transitively builds.
+      "name": "Debug rfd (reagan clip)",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/build/dev/rtip-hello",
+      "program": "${workspaceFolder}/build/dev/rfd",
+      "args": [
+        "--source", "${workspaceFolder}/external/data/gallery/reagan/reagan.mp4",
+        "--gallery", "${workspaceFolder}/build/dev/gallery.json"
+      ],
+      "cwd": "${workspaceFolder}",
+      "environment": [
+        { "name": "GST_PLUGIN_PATH", "value": "${workspaceFolder}/build/dev/source" },
+        { "name": "GST_DEBUG", "value": "2" }
+      ],
+      "MIMode": "gdb",
+      "preLaunchTask": "data: enroll gallery",
+      "setupCommands": [
+        { "description": "Pretty-print STL containers", "text": "-enable-pretty-printing", "ignoreFailures": true }
+      ]
+    },
+    {
+      // Same, with our element narrating every frame. Useful when a detection
+      // looks wrong and you want timings and face counts alongside the breakpoint.
+      "name": "Debug rfd (verbose rfdface)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/dev/rfd",
+      "args": [
+        "--source", "${workspaceFolder}/external/data/gallery/reagan/reagan.mp4",
+        "--gallery", "${workspaceFolder}/build/dev/gallery.json",
+        "--quiet"
+      ],
+      "cwd": "${workspaceFolder}",
+      "environment": [
+        { "name": "GST_PLUGIN_PATH", "value": "${workspaceFolder}/build/dev/source" },
+        { "name": "GST_DEBUG", "value": "rfdface:6" }
+      ],
+      "MIMode": "gdb",
+      "preLaunchTask": "data: enroll gallery",
+      "setupCommands": [
+        { "description": "Pretty-print STL containers", "text": "-enable-pretty-printing", "ignoreFailures": true }
+      ]
+    },
+    {
+      "name": "Debug rfd (webcam)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/dev/rfd",
+      "args": [
+        "--source", "/dev/video0",
+        "--gallery", "${workspaceFolder}/build/dev/gallery.json"
+      ],
+      "cwd": "${workspaceFolder}",
+      "environment": [
+        { "name": "GST_PLUGIN_PATH", "value": "${workspaceFolder}/build/dev/source" },
+        { "name": "GST_DEBUG", "value": "2" }
+      ],
+      "MIMode": "gdb",
+      "preLaunchTask": "data: enroll gallery",
+      "setupCommands": [
+        { "description": "Pretty-print STL containers", "text": "-enable-pretty-printing", "ignoreFailures": true }
+      ]
+    },
+    {
+      // Enrollment, for debugging detection or alignment on the stills rather
+      // than on video - a reproducible single frame beats a moving target.
+      "name": "Debug rfd-enroll",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/dev/rfd-enroll",
+      "args": [
+        "${workspaceFolder}/external/data/gallery",
+        "-o", "${workspaceFolder}/build/dev/gallery.json"
+      ],
+      "cwd": "${workspaceFolder}",
+      "MIMode": "gdb",
+      "preLaunchTask": "build: dev",
+      "setupCommands": [
+        { "description": "Pretty-print STL containers", "text": "-enable-pretty-printing", "ignoreFailures": true }
+      ]
+    },
+    {
+      "name": "Debug rfd-smoke",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/dev/rfd-smoke",
       "args": [],
       "cwd": "${workspaceFolder}",
       "environment": [
@@ -14,6 +107,25 @@
       ],
       "MIMode": "gdb",
       "preLaunchTask": "build: dev",
+      "setupCommands": [
+        { "description": "Pretty-print STL containers", "text": "-enable-pretty-printing", "ignoreFailures": true }
+      ]
+    },
+    {
+      // Follows the CMake Tools status bar: debugs whichever launch target is
+      // selected there, with no arguments. This is the bridge between the two
+      // workflows - use it when switching targets often.
+      "name": "Debug selected CMake target",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${command:cmake.launchTargetPath}",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "environment": [
+        { "name": "GST_PLUGIN_PATH", "value": "${workspaceFolder}/build/dev/source" },
+        { "name": "GST_DEBUG", "value": "2" }
+      ],
+      "MIMode": "gdb",
       "setupCommands": [
         { "description": "Pretty-print STL containers", "text": "-enable-pretty-printing", "ignoreFailures": true }
       ]

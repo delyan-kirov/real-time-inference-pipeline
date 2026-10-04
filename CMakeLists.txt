@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------------
-# Real-time inference pipeline - top-level build definition.
+# \file CMakeLists.txt
+# \brief RFD (real-time face detection) - top-level build definition.
 #
-# \note:
+# \note
 #   * `cmake --preset dev` reads this and GENERATES a build system (Makefiles)
 #     into build/dev/. That step is called "configure".
 #   * `cmake --build --preset dev` then runs make against those files.
@@ -10,7 +11,7 @@
 
 cmake_minimum_required(VERSION 3.22)
 
-project(rtip
+project(rfd
   VERSION 0.1.0
   DESCRIPTION "Real-time face-recognition inference pipeline on GStreamer"
   LANGUAGES CXX)
@@ -31,6 +32,9 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "" FORCE)
 endif()
 
+# --- Layout ------------------------------------------------------------------
+set(RFD_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include")
+
 # --- Dependencies ------------------------------------------------------------
 find_package(PkgConfig REQUIRED)
 
@@ -43,49 +47,86 @@ message(STATUS "GStreamer version: ${gstreamer_VERSION}")
 
 # OpenCV supplies both inference models and the DNN runtime that executes them:
 #   objdetect - FaceDetectorYN (YuNet) and FaceRecognizerSF (SFace) wrappers
-#   dnn       - the ONNX importer and inference engine behind both
+#   dnn       - ONNX importer and inference engine behind both
 #   imgcodecs - reading gallery images off disk
-# Named as COMPONENTS rather than taken from opencv4.pc on purpose: the .pc file
-# lists every module OpenCV was built with (~50 libraries), while find_package
-# yields one imported target per module so we link only what we use.
-# 4.5.4 is the floor: FaceDetectorYN and FaceRecognizerSF first appear there.
-# It is also what Ubuntu 22.04 ships, which is the oldest image CI builds on.
 find_package(OpenCV 4.5.4 CONFIG REQUIRED COMPONENTS core imgproc imgcodecs dnn objdetect)
 
 message(STATUS "OpenCV version: ${OpenCV_VERSION}")
 
+# Metadata output and the on-disk gallery are both JSON. Header-only, so this
+# costs nothing at link time.
+find_package(nlohmann_json 3.9 CONFIG REQUIRED)
+
+message(STATUS "nlohmann_json version: ${nlohmann_json_VERSION}")
+
 # --- Model weights -------------------------------------------------
-set(RTIP_MODEL_DIR "${CMAKE_SOURCE_DIR}/external/models"
+set(RFD_MODEL_DIR "${CMAKE_SOURCE_DIR}/external/models"
     CACHE PATH "Directory holding the vendored YuNet and SFace ONNX weights")
 
-set(RTIP_YUNET_MODEL "${RTIP_MODEL_DIR}/face_detection_yunet_2023mar.onnx")
-set(RTIP_SFACE_MODEL "${RTIP_MODEL_DIR}/face_recognition_sface_2021dec.onnx")
+set(RFD_YUNET_MODEL "${RFD_MODEL_DIR}/face_detection_yunet_2023mar.onnx")
+set(RFD_SFACE_MODEL "${RFD_MODEL_DIR}/face_recognition_sface_2021dec.onnx")
 
-foreach(_model IN ITEMS RTIP_YUNET_MODEL RTIP_SFACE_MODEL)
+foreach(_model IN ITEMS RFD_YUNET_MODEL RFD_SFACE_MODEL)
   if(NOT EXISTS "${${_model}}")
     message(FATAL_ERROR
       "${_model} not found: ${${_model}}\n"
-      "Expected vendored weights under RTIP_MODEL_DIR (${RTIP_MODEL_DIR}). "
+      "Expected vendored weights under RFD_MODEL_DIR (${RFD_MODEL_DIR}). "
       "See external/README.md to re-fetch them.")
   endif()
 endforeach()
 
-add_library(rtip_models INTERFACE)
-target_compile_definitions(rtip_models INTERFACE
-  RTIP_YUNET_MODEL="${RTIP_YUNET_MODEL}"
-  RTIP_SFACE_MODEL="${RTIP_SFACE_MODEL}")
+# An embedding is only comparable against others from the same weights, so the
+# SFace digest is baked in and written into every gallery file. Reusing the
+# SHA256SUMS that CI already verifies avoids both a second copy of the hash and
+# a crypto dependency just to recompute it at runtime.
+file(STRINGS "${RFD_MODEL_DIR}/SHA256SUMS" _rfd_sums)
+foreach(_line IN LISTS _rfd_sums)
+  if(_line MATCHES "^([0-9a-f]+) +face_recognition_sface")
+    set(RFD_SFACE_SHA256 "${CMAKE_MATCH_1}")
+  endif()
+endforeach()
+unset(_rfd_sums)
+
+if(NOT RFD_SFACE_SHA256)
+  message(FATAL_ERROR
+    "could not read the SFace digest from ${RFD_MODEL_DIR}/SHA256SUMS")
+endif()
+
+add_library(rfd_models INTERFACE)
+target_compile_definitions(rfd_models INTERFACE
+  RFD_YUNET_MODEL="${RFD_YUNET_MODEL}"
+  RFD_SFACE_MODEL="${RFD_SFACE_MODEL}"
+  RFD_SFACE_SHA256="${RFD_SFACE_SHA256}")
 
 # --- Warnings ---------------------------------------------------------------
-add_library(rtip_warnings INTERFACE)
-target_compile_options(rtip_warnings INTERFACE
-  $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:
-    -Wall -Wextra -Wpedantic
-    -Wshadow -Wconversion -Wsign-conversion
-    -Wnon-virtual-dtor -Wold-style-cast -Woverloaded-virtual
-  >)
+set(RFD_WARNINGS
+  -Wall -Wextra -Wpedantic
+  -Wshadow -Wconversion -Wsign-conversion
+  -Wnon-virtual-dtor -Woverloaded-virtual)
+
+add_library(rfd_warnings INTERFACE)
+target_compile_options(rfd_warnings INTERFACE
+  $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:${RFD_WARNINGS} -Wold-style-cast>)
+
+# Same set minus -Wold-style-cast, for translation units that use GObject's macro
+add_library(rfd_warnings_gobject INTERFACE)
+target_compile_options(rfd_warnings_gobject INTERFACE
+  $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:${RFD_WARNINGS}>)
 
 # --- Targets ----------------------------------------------------------------
-add_subdirectory(src)
+add_subdirectory(source)
+
+# --- Tests and convenience targets -------------------------------------------
+# `ctest --preset dev`.
+enable_testing()
+
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+
+# Used by tests/.
+set(RFD_DATA "${CMAKE_SOURCE_DIR}/external/data/gallery")
+set(RFD_GALLERY "${CMAKE_BINARY_DIR}/gallery.json")
+
+add_subdirectory(tests)
 
 # --- Editor integration -----------------------------------------------------
 if(CMAKE_EXPORT_COMPILE_COMMANDS)

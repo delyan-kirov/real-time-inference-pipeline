@@ -40,7 +40,11 @@ jobs:
             libgstreamer-plugins-base1.0-dev \
             gstreamer1.0-plugins-base \
             gstreamer1.0-plugins-good \
-            libopencv-dev
+            gstreamer1.0-libav \
+            libopencv-dev \
+            nlohmann-json3-dev \
+            python3-numpy \
+            python3-opencv
 
       - uses: actions/checkout@v4
 
@@ -51,6 +55,7 @@ jobs:
           echo "gcc       $(gcc --version | head -n1)"
           echo "gstreamer $(pkg-config --modversion gstreamer-1.0)"
           echo "opencv    $(pkg-config --modversion opencv4)"
+          echo "json      $(pkg-config --modversion nlohmann_json)"
 
       # Fails loudly and early if the distro CMake is older than the project
       # floor, rather than emitting a confusing error from inside CMakeLists.
@@ -73,11 +78,13 @@ jobs:
       - name: Build
         run: cmake --build --preset dev --parallel
 
-      # videotestsrc -> videoconvert -> fakesink: no display, no camera, no GPU.
-      - name: Smoke test
+      # The same suite the Nix workflow runs, minus the label-slow tests: streaming
+      # five clips at real time costs a minute of container time for no extra
+      # signal about whether stock apt packages work.
+      - name: Test
         env:
           GST_DEBUG: "1"
-        run: ./build/dev/rtip-hello
+        run: ctest --preset dev --label-exclude slow --output-on-failure
 
       # The editor integration is part of the deliverable, so check that CMake
       # really did publish the compilation database on a stock toolchain too.

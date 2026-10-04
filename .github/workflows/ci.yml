@@ -62,13 +62,11 @@ jobs:
       - name: Build
         run: nix develop --command cmake --build --preset ${{ matrix.preset }} --parallel
 
-      - name: Smoke test
-        # LeakSanitizer is only meaningful on the asan build; setting the option
-        # unconditionally is harmless and keeps this a single step.
+      # The whole verification suite, identical to what `ctest --preset <preset>`
+      # runs locally. Previously these assertions lived inline here, which meant
+      # nobody running the build could execute them.
+      - name: Test
         env:
           ASAN_OPTIONS: detect_leaks=1
-          # The pipeline is videotestsrc -> fakesink, so it needs no display and
-          # no camera. Raise this to 3 when a failure needs diagnosing.
           GST_DEBUG: "1"
-        run: nix develop --command ./build/${{ matrix.preset }}/rtip-hello
-
+        run: nix develop --command ctest --preset ${{ matrix.preset }} --output-on-failure

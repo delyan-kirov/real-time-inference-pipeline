@@ -73,5 +73,55 @@
       "name": "tsan",
       "configurePreset": "tsan"
     }
+  ],
+  "testPresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "output": {
+        "outputOnFailure": true,
+        "verbosity": "default"
+      },
+      "execution": {
+        "noTestsAction": "error",
+        "stopOnFailure": false
+      }
+    },
+    {
+      "name": "dev",
+      "inherits": "base",
+      "configurePreset": "dev",
+      "displayName": "All checks (Debug)",
+      "description": "Everything CI asserts: build smoke, weights, enrollment, data validation, and the full pipeline suite."
+    },
+    {
+      "name": "fast",
+      "inherits": "base",
+      "configurePreset": "dev",
+      "displayName": "Fast checks only",
+      "description": "Skips the tests that stream clips at real time. Use while iterating.",
+      "filter": {
+        "include": {
+          "label": "fast"
+        }
+      }
+    },
+    {
+      "name": "release",
+      "inherits": "base",
+      "configurePreset": "release",
+      "displayName": "All checks (RelWithDebInfo)",
+      "description": "The same suite against the optimised build; this is where throughput numbers should come from."
+    },
+    {
+      "name": "asan",
+      "inherits": "base",
+      "configurePreset": "asan",
+      "displayName": "All checks under ASan + LSan",
+      "description": "Proves the 'no leaks under sustained load' criterion. Slow.",
+      "environment": {
+        "ASAN_OPTIONS": "detect_leaks=1"
+      }
+    }
   ]
 }

@@ -1,16 +1,19 @@
-// ---------------------------------------------------------------------------
-// Workspace smoke test:
-//
-//   1. We compiled and linked against GStreamer at all.
-//   2. The runtime GStreamer matches the headers we built against.
-//   3. The plugin registry is populated - under Nix, plugins live in separate
-//      store paths and are only found via GST_PLUGIN_SYSTEM_PATH_1_0.
-//   4. The vendored YuNet and SFace weights load into OpenCV's DNN backend.
-//
-// It builds `videotestsrc num-buffers=N ! videoconvert ! fakesink`, runs it to
-// EOS, and reports. That exercises plugin discovery, element linking, state
-// changes and bus handling - the same machinery the real pipeline will use.
-// ---------------------------------------------------------------------------
+/**
+ * @file smoke.cpp
+ * @brief Workspace smoke test.
+ *
+ * Proves four things:
+ *
+ *   1. We compiled and linked against GStreamer at all.
+ *   2. The runtime GStreamer matches the headers we built against.
+ *   3. The plugin registry is populated - under Nix, plugins live in separate
+ *      store paths and are only found via GST_PLUGIN_SYSTEM_PATH_1_0.
+ *   4. The vendored YuNet and SFace weights load into OpenCV's DNN backend.
+ *
+ * It builds `videotestsrc num-buffers=N ! videoconvert ! fakesink`, runs it to
+ * EOS, and reports. That exercises plugin discovery, element linking, state
+ * changes and bus handling - the same machinery the real pipeline uses.
+ */
 
 #include <gst/gst.h>
 
@@ -20,10 +23,18 @@
 #include <opencv2/objdetect/face.hpp>
 #include <string>
 
+#include "util.hpp"
+
+/// RFD's vocabulary (Str, Vec, UInt, ...) is used unqualified in this file;
+/// see util.hpp.
+using namespace RFD;
+
 namespace {
 
-constexpr int kSmokeTestFrames = 30;
+/// Frames the smoke pipeline pushes before EOS.
+constexpr int SMOKE_TEST_FRAMES = 30;
 
+/// Prints the compiled-against and running-against GStreamer versions.
 void report_versions() {
     guint major = 0, minor = 0, micro = 0, nano = 0;
     gst_version(&major, &minor, &micro, &nano);
@@ -37,6 +48,7 @@ void report_versions() {
     }
 }
 
+/// Prints how many plugins the registry found, warning when it is empty.
 void report_plugin_registry() {
     GList* plugins = gst_registry_get_plugin_list(gst_registry_get());
     const guint count = g_list_length(plugins);
@@ -48,21 +60,24 @@ void report_plugin_registry() {
     }
 }
 
-// Import both ONNX graphs. Paths come from CMake (see rtip_models)
+/**
+ * @brief Imports both ONNX graphs. Paths come from CMake (see rfd_models).
+ * @return True when both weight files loaded.
+ */
 bool check_models() {
     std::cout << "  opencv           : " << CV_VERSION << '\n';
 
     try {
         // Input size is a placeholder; the real pipeline sets it per negotiated
         // caps. Only the graph import is under test here.
-        const auto detector = cv::FaceDetectorYN::create(RTIP_YUNET_MODEL, "", cv::Size(320, 320));
+        const auto detector = cv::FaceDetectorYN::create(RFD_YUNET_MODEL, "", cv::Size(320, 320));
         if (detector == nullptr) {
             std::cerr << "  YuNet            : create returned null\n";
             return false;
         }
         std::cout << "  yunet            : loaded\n";
 
-        const auto recognizer = cv::FaceRecognizerSF::create(RTIP_SFACE_MODEL, "");
+        const auto recognizer = cv::FaceRecognizerSF::create(RFD_SFACE_MODEL, "");
         if (recognizer == nullptr) {
             std::cerr << "  SFace            : create returned null\n";
             return false;
@@ -77,10 +92,13 @@ bool check_models() {
     return true;
 }
 
-// Run a trivial pipeline to EOS. Returns true on clean completion.
+/**
+ * @brief Runs a trivial pipeline to EOS.
+ * @return True on clean completion.
+ */
 bool run_smoke_pipeline() {
-    const std::string description =
-        "videotestsrc pattern=ball num-buffers=" + std::to_string(kSmokeTestFrames) +
+    const Str description =
+        "videotestsrc pattern=ball num-buffers=" + std::to_string(SMOKE_TEST_FRAMES) +
         " ! video/x-raw,width=640,height=480,framerate=30/1"
         " ! videoconvert"
         " ! fakesink sync=false";
@@ -135,19 +153,25 @@ bool run_smoke_pipeline() {
 
 }  // namespace
 
+/**
+ * @brief Reports the environment, then runs the smoke pipeline.
+ * @param argc Argument count; forwarded to gst_init.
+ * @param argv Argument vector; forwarded to gst_init.
+ * @return EXIT_SUCCESS when the weights load and the pipeline reaches EOS.
+ */
 int main(int argc, char* argv[]) {
     gst_init(&argc, &argv);
 
-    std::cout << "rtip - real-time inference pipeline\n"
+    std::cout << "rfd - real-time face detection pipeline\n"
               << "environment check\n";
     report_versions();
     report_plugin_registry();
     const bool models_ok = check_models();
 
-    std::cout << "smoke pipeline (" << kSmokeTestFrames << " frames)\n";
+    std::cout << "smoke pipeline (" << SMOKE_TEST_FRAMES << " frames)\n";
     const bool pipeline_ok = run_smoke_pipeline();
     const bool ok = models_ok && pipeline_ok;
-    std::cout << (ok ? "  ok - hello, world\n" : "  FAILED\n");
+    std::cout << (ok ? "  ok - smoke test passed\n" : "  FAILED\n");
 
     gst_deinit();
     return ok ? EXIT_SUCCESS : EXIT_FAILURE;

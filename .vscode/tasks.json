@@ -1,4 +1,7 @@
 {
+  // Everything here drives CMake, CTest or a built binary directly. Build with
+  // Ctrl+Shift+B, test with the test group, and run or debug a target from the
+  // CMake Tools status bar or launch.json.
   "version": "2.0.0",
   "tasks": [
     {
@@ -26,11 +29,101 @@
       "command": "cmake --preset dev",
       "problemMatcher": []
     },
+
+    // --- tests --------------------------------------------------------------
     {
-      "label": "run: rtip-hello",
+      "label": "test: fast",
       "type": "shell",
-      "command": "${workspaceFolder}/build/dev/rtip-hello",
+      "command": "ctest --preset fast --output-on-failure",
       "dependsOn": "build: dev",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "test: all",
+      "type": "shell",
+      "command": "ctest --preset dev --output-on-failure",
+      "dependsOn": "build: dev",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      // The pipeline checks on their own, which print one line per property
+      // rather than CTest's pass/fail summary.
+      "label": "test: pipeline checks",
+      "type": "shell",
+      "command": "python3 tools/check_pipeline.py --build-dir build/dev --gallery build/dev/gallery.json",
+      "dependsOn": "data: enroll gallery",
+      "options": { "env": { "GST_PLUGIN_PATH": "${workspaceFolder}/build/dev/source" } },
+      "problemMatcher": []
+    },
+
+    // --- data ---------------------------------------------------------------
+    {
+      // Most other tasks and all the rfd launch configs need this first.
+      "label": "data: enroll gallery",
+      "type": "shell",
+      "command": "./build/dev/rfd-enroll external/data/gallery -o build/dev/gallery.json",
+      "dependsOn": "build: dev",
+      "problemMatcher": []
+    },
+    {
+      "label": "data: validate",
+      "type": "shell",
+      "command": "python3 tools/validate_data.py --gallery external/data/gallery --json build/dev/gallery.json",
+      "dependsOn": "data: enroll gallery",
+      "problemMatcher": []
+    },
+
+    // --- run ----------------------------------------------------------------
+    {
+      "label": "run: rfd-smoke",
+      "type": "shell",
+      "command": "${workspaceFolder}/build/dev/rfd-smoke",
+      "dependsOn": "build: dev",
+      "problemMatcher": []
+    },
+    {
+      // The headline demo: a clip streamed at source rate with recognition.
+      "label": "run: demo (stream a clip with recognition)",
+      "type": "shell",
+      "command": "./build/dev/rfd --source external/data/gallery/reagan/reagan.mp4 --gallery build/dev/gallery.json",
+      "dependsOn": "data: enroll gallery",
+      "problemMatcher": []
+    },
+    {
+      "label": "run: webcam",
+      "type": "shell",
+      "command": "./build/dev/rfd --source /dev/video0 --gallery build/dev/gallery.json",
+      "dependsOn": "data: enroll gallery",
+      "problemMatcher": []
+    },
+    {
+      // Unpaced with a non-leaky queue, which is the only configuration where the
+      // reported rate means inference capacity - see source/rfd.cpp.
+      "label": "run: benchmark (max throughput)",
+      "type": "shell",
+      "command": "./build/dev/rfd --source external/data/gallery/reagan/reagan.mp4 --gallery build/dev/gallery.json --no-sync --no-drop --quiet",
+      "dependsOn": "data: enroll gallery",
+      "problemMatcher": []
+    },
+    {
+      // Proves rfdface is a real GStreamer plugin, not just a class our own
+      // binary registers.
+      "label": "run: gst-inspect rfdface",
+      "type": "shell",
+      "command": "gst-inspect-1.0 rfdface",
+      "dependsOn": "build: dev",
+      "options": { "env": { "GST_PLUGIN_PATH": "${workspaceFolder}/build/dev/source" } },
+      "problemMatcher": []
+    },
+    {
+      // The same inference via gst-launch-1.0, with no application code involved.
+      "label": "run: gst-launch pipeline",
+      "type": "shell",
+      "command": "gst-launch-1.0 filesrc location=external/data/gallery/reagan/reagan.mp4 ! decodebin ! videoconvert ! video/x-raw,format=BGR ! rfdface gallery=build/dev/gallery.json ! fakesink sync=false",
+      "dependsOn": "data: enroll gallery",
+      "options": { "env": { "GST_PLUGIN_PATH": "${workspaceFolder}/build/dev/source" } },
       "problemMatcher": []
     }
   ]
