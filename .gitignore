@@ -15,6 +15,3 @@ result-*
 .vscode/settings.local.json
 *.swp
 
-# Models are large binaries; fetched by tools/fetch_models.sh instead.
-models/*
-!models/.gitkeep

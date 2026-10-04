@@ -43,10 +43,14 @@ jobs:
       - name: Check flake
         run: nix flake check --all-systems
 
+      - name: Verify vendored model weights
+        run: cd external/models && sha256sum -c SHA256SUMS
+
       - name: Record exact dependency versions
         run: |
           nix develop --command bash -c '
             echo "gstreamer $(pkg-config --modversion gstreamer-1.0)"
+            echo "opencv    $(pkg-config --modversion opencv4)"
             cmake --version | head -n1
             make --version | head -n1
             c++ --version | head -n1

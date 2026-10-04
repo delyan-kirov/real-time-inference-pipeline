@@ -6,6 +6,10 @@ add_executable(rtip-hello hello.cpp)
 target_link_libraries(rtip-hello
   PRIVATE
     rtip_warnings
+    rtip_models
     PkgConfig::gstreamer
     PkgConfig::gstreamer_base
-    PkgConfig::gstreamer_video)
+    PkgConfig::gstreamer_video
+    opencv_core
+    opencv_dnn
+    opencv_objdetect)

@@ -4,9 +4,8 @@
 //   1. We compiled and linked against GStreamer at all.
 //   2. The runtime GStreamer matches the headers we built against.
 //   3. The plugin registry is populated - under Nix, plugins live in separate
-//      store paths and are only found via GST_PLUGIN_SYSTEM_PATH_1_0. A pipeline
-//      that fails to parse here means the dev shell is misconfigured, not that
-//      the code is wrong.
+//      store paths and are only found via GST_PLUGIN_SYSTEM_PATH_1_0.
+//   4. The vendored YuNet and SFace weights load into OpenCV's DNN backend.
 //
 // It builds `videotestsrc num-buffers=N ! videoconvert ! fakesink`, runs it to
 // EOS, and reports. That exercises plugin discovery, element linking, state
@@ -17,6 +16,8 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <opencv2/core.hpp>
+#include <opencv2/objdetect/face.hpp>
 #include <string>
 
 namespace {
@@ -45,6 +46,35 @@ void report_plugin_registry() {
     if (count == 0) {
         std::cout << "  WARNING: empty registry - is GST_PLUGIN_SYSTEM_PATH_1_0 set?\n";
     }
+}
+
+// Import both ONNX graphs. Paths come from CMake (see rtip_models)
+bool check_models() {
+    std::cout << "  opencv           : " << CV_VERSION << '\n';
+
+    try {
+        // Input size is a placeholder; the real pipeline sets it per negotiated
+        // caps. Only the graph import is under test here.
+        const auto detector = cv::FaceDetectorYN::create(RTIP_YUNET_MODEL, "", cv::Size(320, 320));
+        if (detector == nullptr) {
+            std::cerr << "  YuNet            : create returned null\n";
+            return false;
+        }
+        std::cout << "  yunet            : loaded\n";
+
+        const auto recognizer = cv::FaceRecognizerSF::create(RTIP_SFACE_MODEL, "");
+        if (recognizer == nullptr) {
+            std::cerr << "  SFace            : create returned null\n";
+            return false;
+        }
+        std::cout << "  sface            : loaded\n";
+    } catch (const cv::Exception& e) {
+        std::cerr << "  failed to load model weights: " << e.what() << '\n'
+                  << "  check external/models/ against its SHA256SUMS\n";
+        return false;
+    }
+
+    return true;
 }
 
 // Run a trivial pipeline to EOS. Returns true on clean completion.
@@ -112,9 +142,11 @@ int main(int argc, char* argv[]) {
               << "environment check\n";
     report_versions();
     report_plugin_registry();
+    const bool models_ok = check_models();
 
     std::cout << "smoke pipeline (" << kSmokeTestFrames << " frames)\n";
-    const bool ok = run_smoke_pipeline();
+    const bool pipeline_ok = run_smoke_pipeline();
+    const bool ok = models_ok && pipeline_ok;
     std::cout << (ok ? "  ok - hello, world\n" : "  FAILED\n");
 
     gst_deinit();

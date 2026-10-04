@@ -39,7 +39,8 @@ jobs:
             libgstreamer1.0-dev \
             libgstreamer-plugins-base1.0-dev \
             gstreamer1.0-plugins-base \
-            gstreamer1.0-plugins-good
+            gstreamer1.0-plugins-good \
+            libopencv-dev
 
       - uses: actions/checkout@v4
 
@@ -49,6 +50,7 @@ jobs:
           echo "cmake     $(cmake --version | head -n1)"
           echo "gcc       $(gcc --version | head -n1)"
           echo "gstreamer $(pkg-config --modversion gstreamer-1.0)"
+          echo "opencv    $(pkg-config --modversion opencv4)"
 
       # Fails loudly and early if the distro CMake is older than the project
       # floor, rather than emitting a confusing error from inside CMakeLists.
@@ -61,6 +63,9 @@ jobs:
             exit 1
           fi
           echo "stock cmake $have satisfies floor $need"
+
+      - name: Verify vendored model weights
+        run: cd external/models && sha256sum -c SHA256SUMS
 
       - name: Configure
         run: cmake --preset dev

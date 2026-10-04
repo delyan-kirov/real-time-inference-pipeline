@@ -3,6 +3,10 @@
 A GStreamer-based pipeline that ingests a live video source, runs facial
 recognition against a curated gallery, and emits structured metadata.
 
+Detection is YuNet and recognition is SFace, both executed through OpenCV's DNN
+backend. The weights are vendored in `external/models/`. See
+[external/README.md](external/README.md)
+
 ## Quick start
 
 ```sh
@@ -20,6 +24,9 @@ environment check
   compiled against : 1.28.6
   running against  : 1.28.6
   plugins found    : 271
+  opencv           : 4.13.0
+  yunet            : loaded
+  sface            : loaded
 smoke pipeline (30 frames)
   ok - hello, world
 ```
@@ -32,7 +39,8 @@ Debian/Ubuntu:
 ```sh
 sudo apt install build-essential cmake pkg-config \
      libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
-     gstreamer1.0-plugins-{base,good,bad,libav} gstreamer1.0-vaapi
+     gstreamer1.0-plugins-{base,good,bad,libav} gstreamer1.0-vaapi \
+     libopencv-dev
 cmake --preset dev && cmake --build --preset dev && ./build/dev/rtip-hello
 ```
 
@@ -48,6 +56,23 @@ cmake --preset dev && cmake --build --preset dev && ./build/dev/rtip-hello
 ```sh
 cmake --preset asan && cmake --build --preset asan
 ASAN_OPTIONS=detect_leaks=1 ./build/asan/rtip-hello
+```
+
+## Models
+
+| File (`external/models/`) | Model | Role | Licence |
+|---|---|---|---|
+| `face_detection_yunet_2023mar.onnx` | YuNet | Detection + 5 landmarks | MIT |
+| `face_recognition_sface_2021dec.onnx` | SFace | 128-D embeddings | Apache-2.0 |
+
+```sh
+cmake --preset dev -DRTIP_MODEL_DIR=/path/to/weights
+```
+
+Verify the vendored copies against the digests upstream published:
+
+```sh
+(cd external/models && sha256sum -c SHA256SUMS)
 ```
 
 ## VS Code

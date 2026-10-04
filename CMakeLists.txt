@@ -41,6 +41,40 @@ pkg_check_modules(gstreamer_video REQUIRED IMPORTED_TARGET gstreamer-video-1.0)
 
 message(STATUS "GStreamer version: ${gstreamer_VERSION}")
 
+# OpenCV supplies both inference models and the DNN runtime that executes them:
+#   objdetect - FaceDetectorYN (YuNet) and FaceRecognizerSF (SFace) wrappers
+#   dnn       - the ONNX importer and inference engine behind both
+#   imgcodecs - reading gallery images off disk
+# Named as COMPONENTS rather than taken from opencv4.pc on purpose: the .pc file
+# lists every module OpenCV was built with (~50 libraries), while find_package
+# yields one imported target per module so we link only what we use.
+# 4.5.4 is the floor: FaceDetectorYN and FaceRecognizerSF first appear there.
+# It is also what Ubuntu 22.04 ships, which is the oldest image CI builds on.
+find_package(OpenCV 4.5.4 CONFIG REQUIRED COMPONENTS core imgproc imgcodecs dnn objdetect)
+
+message(STATUS "OpenCV version: ${OpenCV_VERSION}")
+
+# --- Model weights -------------------------------------------------
+set(RTIP_MODEL_DIR "${CMAKE_SOURCE_DIR}/external/models"
+    CACHE PATH "Directory holding the vendored YuNet and SFace ONNX weights")
+
+set(RTIP_YUNET_MODEL "${RTIP_MODEL_DIR}/face_detection_yunet_2023mar.onnx")
+set(RTIP_SFACE_MODEL "${RTIP_MODEL_DIR}/face_recognition_sface_2021dec.onnx")
+
+foreach(_model IN ITEMS RTIP_YUNET_MODEL RTIP_SFACE_MODEL)
+  if(NOT EXISTS "${${_model}}")
+    message(FATAL_ERROR
+      "${_model} not found: ${${_model}}\n"
+      "Expected vendored weights under RTIP_MODEL_DIR (${RTIP_MODEL_DIR}). "
+      "See external/README.md to re-fetch them.")
+  endif()
+endforeach()
+
+add_library(rtip_models INTERFACE)
+target_compile_definitions(rtip_models INTERFACE
+  RTIP_YUNET_MODEL="${RTIP_YUNET_MODEL}"
+  RTIP_SFACE_MODEL="${RTIP_SFACE_MODEL}")
+
 # --- Warnings ---------------------------------------------------------------
 add_library(rtip_warnings INTERFACE)
 target_compile_options(rtip_warnings INTERFACE
