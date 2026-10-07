@@ -22,9 +22,9 @@ jobs:
       fail-fast: false
       matrix:
         release:
-          - "22.04"   # LTS, supported to 2027. Oldest CMake we support (3.22).
-          - "24.04"   # LTS, current default.
-          - "25.04"   # Forward-looking; catches upcoming GStreamer changes.
+          # Stock OpenCV must be >= 4.8 to load the vendored yunet_2023mar
+          # weights, which rules out 22.04 (4.5.4) and 24.04 (4.6.0).
+          - "25.04"   # OpenCV 4.10, CMake 3.31.
 
     steps:
       - name: Install dependencies
@@ -41,6 +41,7 @@ jobs:
             gstreamer1.0-plugins-base \
             gstreamer1.0-plugins-good \
             gstreamer1.0-libav \
+            gstreamer1.0-tools \
             libopencv-dev \
             nlohmann-json3-dev \
             python3-numpy \

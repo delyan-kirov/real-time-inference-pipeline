@@ -1,18 +1,7 @@
 /**
  * @file face_meta.hpp
- * @brief GstRfdFaceMeta - inference results carried on the GstBuffer they
- *        describe.
+ * @brief GstRfdFaceMeta - inference results
  *
- * The alternative designs are worse. A signal per frame couples every consumer
- * to our element; a side channel has to re-associate results with frames by
- * timestamp and gets it wrong the moment frames are dropped. Metadata attached
- * to the buffer cannot desynchronise from its frame, because it *is* part of it:
- * it survives queues, tees and reordering, and any downstream element can read
- * it without knowing we exist.
- *
- * This is how the GStreamer ecosystem does it - gst-inference and DeepStream
- * both attach per-buffer metadata - so the pipeline composes with that world
- * rather than inventing a private protocol.
  */
 
 #pragma once

@@ -2,16 +2,6 @@
  * @file embedder.hpp
  * @brief SFace embeddings.
  *
- * Two steps that must never be separated: alignCrop() warps the face to SFace's
- * canonical 112x112 using the five YuNet landmarks, and feature() runs the
- * network over the result. Feeding SFace an unaligned crop, or one aligned from
- * landmarks other than the ones the detector produced, still yields a
- * plausible-looking 128-D vector - it is just a much worse one. The failure is
- * silent and looks like poor model accuracy.
- *
- * That is the reason enrollment and the live pipeline share this class instead
- * of each doing their own cropping: a gallery built by one code path and matched
- * by another is the single easiest way to break this system invisibly.
  */
 
 #pragma once

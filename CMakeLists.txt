@@ -49,7 +49,9 @@ message(STATUS "GStreamer version: ${gstreamer_VERSION}")
 #   objdetect - FaceDetectorYN (YuNet) and FaceRecognizerSF (SFace) wrappers
 #   dnn       - ONNX importer and inference engine behind both
 #   imgcodecs - reading gallery images off disk
-find_package(OpenCV 4.5.4 CONFIG REQUIRED COMPONENTS core imgproc imgcodecs dnn objdetect)
+# 4.8 is where FaceDetectorYN understands the vendored yunet_2023mar weights;
+# 4.5.4 and 4.6.0 load them, then fail in detect() (opencv/opencv_zoo#172).
+find_package(OpenCV 4.8 CONFIG REQUIRED COMPONENTS core imgproc imgcodecs dnn objdetect)
 
 message(STATUS "OpenCV version: ${OpenCV_VERSION}")
 

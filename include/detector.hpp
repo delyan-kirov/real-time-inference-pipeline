@@ -2,35 +2,7 @@
  * @file detector.hpp
  * @brief YuNet face detection.
  *
- * A wrapper over cv::FaceDetectorYN carrying the two pieces of real logic that
- * using YuNet correctly requires.
- *
- * 1. Input size tracking. The 2023mar export has a *fixed* input shape, and
- *    OpenCV 4.x infers at whatever size we declare through setInputSize().
- *    Declaring a size that does not match the frame does not fail - it silently
- *    returns coordinates on the wrong basis. So the size is re-declared whenever
- *    the input dimensions change, which is what makes a mid-stream resolution
- *    change (an RTSP reconnect negotiating different caps) safe.
- *
- * 2. Downscaling large frames. YuNet was trained to find faces roughly 10x10 to
- *    300x300 pixels, and that range is a property of the training scheme, not a
- *    soft preference. Feed it a 1280px portrait where the head is 600px tall and
- *    it finds *nothing* - no error, no warning, just an empty result that looks
- *    exactly like "there is no face here". Measured on our own gallery stills,
- *    detection went from 10/36 at native resolution to 28/36 when the long edge
- *    was capped at 640.
- *
- *    So frames are downscaled to `max_input_edge` before detection, and every
- *    coordinate is scaled back to the original frame afterwards. Callers always
- *    see results in original-frame coordinates and never need to know this
- *    happened.
- *
- *    The trade-off runs the other way for small faces: downscaling a wide shot
- *    of a crowd can push distant faces under the 10px floor, and we measured
- *    exactly that on one group photograph (4 faces at native, 0 at 640). A
- *    close-up gallery still and a wide surveillance shot genuinely want
- *    different caps, which is why this is a constructor parameter rather than a
- *    constant.
+ * A wrapper over cv::FaceDetectorYN
  */
 
 #pragma once

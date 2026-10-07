@@ -17,6 +17,12 @@ add_library(rfd_face
 
 target_include_directories(rfd_face PUBLIC "${RFD_INCLUDE_DIR}")
 
+# This static library is linked into libgstrfd.so below, so its objects have to
+# be position independent or the shared link fails outright with "recompile with
+# -fPIC". Nix only gets away without it because its gcc wrapper compiles PIE by
+# default; a stock Ubuntu toolchain does not.
+set_target_properties(rfd_face PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 target_link_libraries(rfd_face
   PUBLIC
     rfd_models

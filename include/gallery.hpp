@@ -2,15 +2,6 @@
  * @file gallery.hpp
  * @brief The enrolled gallery, and open-set matching against it.
  *
- * One template per identity: the normalised mean of that identity's still
- * embeddings. Mean-of-unit-vectors is the standard way to collapse several views
- * of a face into one template - more robust than picking a single "best" still,
- * and cheaper at match time than keeping every embedding and taking a maximum.
- *
- * Matching is deliberately *open-set*: the probe identity is not assumed to be
- * enrolled, so match() can return an unknown result. A closed-set matcher that
- * always names its nearest neighbour would report confident nonsense for every
- * face that walks past the camera.
  */
 
 #pragma once

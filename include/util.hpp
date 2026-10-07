@@ -1,25 +1,7 @@
 /**
  * @file util.hpp
- * @brief RFD's standard-library vocabulary: short aliases for the std types the
- *        project actually uses.
+ * @brief RFD utililites
  *
- * One name per concept, declared once, so every header and translation unit
- * spells `RFD::Str` rather than `std::string` and the signatures stay short
- * enough to read at a glance.
- *
- * The rule for this file is that it holds only what is used somewhere in the
- * tree. An alias nobody references is dead vocabulary that still has to be
- * maintained, so new ones are added when the first caller needs them rather
- * than speculatively.
- *
- * Two things are deliberately *not* aliased:
- *
- *   - built-in arithmetic types. `float`, `double` and `int` are already as
- *     short as an alias would be, and renaming them would churn every numeric
- *     line in the project for nothing.
- *   - GLib's types at the GStreamer boundary. `gboolean`, `guint64` and friends
- *     are part of an ABI we do not own; aliasing them would hide which side of
- *     that boundary a declaration sits on.
  */
 
 #pragma once

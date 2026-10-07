@@ -10,23 +10,6 @@
  *       reagan/portrait.jpg, press-1.jpg, ...
  *       nixon/...
  *
- * Deliberately strict about ambiguity: an image where the detector finds no face
- * is reported and skipped, and so is one where it finds several. Guessing which
- * of three faces in a press photograph is the subject would poison the template
- * in a way that is invisible later - a slightly wrong template degrades every
- * subsequent match without ever looking like an error.
- *
- * It is also strict about *disagreement*. After embedding an identity's stills,
- * each one is compared against their mean and dropped if it is too far off. This
- * catches the mislabelling that archive search genuinely produces: our own first
- * run pulled "Douglas-Home portrait from Richard Nixon meeting" into Nixon's
- * folder, which is a photograph of a different man. One wrong still shifts the
- * template toward someone who is not the subject, and nothing downstream can
- * detect that - so it is caught here, where the evidence is still available.
- *
- * This runs the same Detector and Embedder as the live pipeline, by construction
- * rather than by convention: a gallery built with different alignment than the
- * matcher uses is the easiest way to break recognition silently.
  */
 
 #include <algorithm>
